@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>貓咪急診判斷器</title>
+<meta name="description" content="勾選貓咪現在的症狀，立刻知道該現在出門、今天就醫、本週預約還是在家觀察，並產生給獸醫看的摘要。">
+<meta name="color-scheme" content="light dark">
+<style>
+  :root {
+    --bg: #faf8f3; --card: #ffffff; --text: #1d1d1f; --muted: #5b5b60; --line: #e2ddd2;
+    --primary: #3b6a50; --focus: #1d1d1f;
+    --l1: #b93a2e; --l1-bg: #fbe9e7;
+    --l2: #b35c0e; --l2-bg: #fdf0e1;
+    --l3: #8a6d00; --l3-bg: #fbf4d6;
+    --l4: #2e6b45; --l4-bg: #e6f2ea;
+    --l0: #555; --l0-bg: #efece6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141414; --card: #1f1f1f; --text: #ededed; --muted: #a8a8ad; --line: #353535;
+      --primary: #8fc4a3; --focus: #ffd54a;
+      --l1: #ff8a7a; --l1-bg: #3a1c19;
+      --l2: #ffb066; --l2-bg: #3a2712;
+      --l3: #f0d060; --l3-bg: #36300f;
+      --l4: #8fd3a8; --l4-bg: #15301f;
+      --l0: #bbb; --l0-bg: #2a2a2a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 -apple-system, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  }
+  a { color: var(--primary); }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  header { padding: 20px 16px 8px; max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .disclaimer { font-size: 0.9rem; color: var(--muted); margin: 0 0 12px; }
+  .toggles { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 8px; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 22px; background: var(--card); cursor: pointer; user-select: none; }
+  .toggle input { width: 20px; height: 20px; accent-color: var(--primary); margin: 0; }
+  .toggle.on { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+  button { font: inherit; cursor: pointer; }
+  .btn { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+  .btn.danger { background: var(--l1); border-color: var(--l1); color: #fff; font-weight: 700; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .layout { max-width: 1100px; margin: 0 auto; padding: 0 16px 220px; }
+  @media (min-width: 900px) {
+    .layout { display: grid; grid-template-columns: 1fr 380px; gap: 24px; padding-bottom: 40px; }
+    #result { position: sticky; top: 16px; align-self: start; }
+  }
+  section.group { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 12px 0; }
+  section.group h2 { font-size: 1.05rem; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  section.group .hint { font-size: 0.88rem; color: var(--muted); margin: 0 0 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; }
+  .dot.l1 { background: var(--l1); } .dot.l2 { background: var(--l2); } .dot.l3 { background: var(--l3); } .dot.l4 { background: var(--l4); } .dot.l0 { background: var(--l0); }
+  .sym { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 8px 4px; border-top: 1px solid var(--line); cursor: pointer; }
+  .sym:first-of-type { border-top: 0; }
+  .sym input { width: 22px; height: 22px; margin: 2px 0 0; accent-color: var(--primary); flex: none; }
+  .sym .label { flex: 1; }
+  .sym .why { display: block; font-size: 0.85rem; color: var(--muted); }
+  .sym.checked { background: var(--l0-bg); border-radius: 8px; }
+  /* 結果區 */
+  #result { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+  @media (max-width: 899px) {
+    #result { position: fixed; left: 0; right: 0; bottom: 0; border-radius: 16px 16px 0 0; max-height: 60vh; overflow: auto; box-shadow: 0 -6px 24px rgba(0,0,0,0.15); z-index: 10; }
+    #result.collapsed { max-height: 92px; overflow: hidden; }
+  }
+  .verdict { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; font-size: 1.15rem; font-weight: 700; }
+  .verdict.l1 { background: var(--l1-bg); color: var(--l1); }
+  .verdict.l2 { background: var(--l2-bg); color: var(--l2); }
+  .verdict.l3 { background: var(--l3-bg); color: var(--l3); }
+  .verdict.l4 { background: var(--l4-bg); color: var(--l4); }
+  .verdict.l0 { background: var(--l0-bg); color: var(--l0); font-weight: 500; font-size: 1rem; }
+  .verdict .big { width: 18px; height: 18px; }
+  .verdict .toggle-btn { margin-left: auto; background: none; border: 0; color: inherit; font-size: 0.85rem; padding: 6px; }
+  @media (min-width: 900px) { .verdict .toggle-btn { display: none; } }
+  .reasons { list-style: none; padding: 0; margin: 10px 0 0; }
+  .reasons li { display: flex; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 0.95rem; }
+  .reasons li .dot { margin-top: 7px; }
+  .reasons li b { display: block; }
+  .reasons li span.why { color: var(--muted); font-size: 0.88rem; }
+  .note { font-size: 0.9rem; padding: 8px 10px; border-radius: 8px; background: var(--l2-bg); color: var(--l2); margin-top: 10px; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: 0.93rem; }
+  .card h3 { margin: 0 0 4px; font-size: 1rem; }
+  .card p { margin: 4px 0; }
+  .card .do::before { content: "做："; font-weight: 700; color: var(--l4); }
+  .card .dont::before { content: "不做："; font-weight: 700; color: var(--l1); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .actions .btn { flex: 1 1 auto; text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+  .small { font-size: 0.85rem; color: var(--muted); margin: 8px 0 0; }
+  /* 就醫前 60 秒 */
+  .form { display: grid; gap: 10px; }
+  .form label { display: grid; gap: 4px; font-size: 0.95rem; }
+  .form select, .form input[type=text], .form textarea { font: inherit; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); min-height: 44px; width: 100%; }
+  .form textarea { min-height: 150px; resize: vertical; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  footer { max-width: 1100px; margin: 0 auto; padding: 16px; font-size: 0.85rem; color: var(--muted); }
+  footer ul { padding-left: 18px; margin: 6px 0; }
+  .sr { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>貓咪急診判斷器</h1>
+  <p class="disclaimer">勾選你現在看到的情況，這個工具幫你決定多快要就醫，並整理給獸醫的資訊。它不是診斷，不取代獸醫；任何不確定都請直接打電話給動物醫院。</p>
+  <div class="toggles">
+    <label class="toggle" id="tgAgeWrap"><input type="checkbox" id="tgAge"> 幼貓（6 個月以下）或老貓（10 歲以上）</label>
+    <label class="toggle" id="tgMaleWrap"><input type="checkbox" id="tgMale"> 公貓</label>
+    <button class="btn" id="btnClear" type="button">清除全部</button>
+  </div>
+</header>
+
+<div class="layout">
+  <main id="symptoms" aria-label="症狀勾選"></main>
+
+  <aside id="result" aria-live="polite" aria-label="判斷結果"></aside>
+</div>
+
+<footer>
+  <p>資料來源：VCA Animal Hospitals《Emergency Care for Cats》、International Cat Care《When to take your cat to the vet》、ASPCA 動物毒物控制中心《Emergency Procedures》、FDA《Lovely Lilies and Curious Cats》，經整理為貓健康站（cat-health-tw）的〈貓咪急診判斷與居家急救〉與〈貓咪危險物質速查〉，再轉成本工具的判斷表。</p>
+  <p>本頁不蒐集任何資料，勾選只存在你自己的瀏覽器。作者 Chen-MouChin，由 Claude 協助起草規格與程式。</p>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  // 等級：1 立刻急診、2 今天就醫、3 本週預約、4 居家觀察、0 沉默信號（不計入等級，只提示）
+  const LEVELS = {
+    1: { name: "現在就出門", sub: "以下任一情況，數小時內可能致命。出門前先打電話告知醫院。" },
+    2: { name: "今天就醫，不要拖過 24 小時", sub: "不是立刻致命，但拖過一天會變難處理。" },
+    3: { name: "本週預約獸醫", sub: "觀察不超過一週，記錄頻率與變化帶去。" },
+    4: { name: "在家觀察，有變化就升級", sub: "目前的情況通常會自己好，但出現新症狀就重新勾一次。" },
+    0: { name: "還沒勾選任何情況", sub: "從上方勾選你看到的症狀，結果會即時出現在這裡。" }
+  };
+
+  const GROUPS = [
+    { level: 1, title: "立刻就醫的情況", hint: "每一項都可能在數小時內致命", items: [
+      { id: "noUrine", label: "公貓頻繁蹲砂盆卻沒有尿", why: "尿道阻塞，24 到 48 小時內可致命", aid: null },
+      { id: "breath", label: "呼吸困難、張口呼吸、腹部用力呼吸", why: "心臟病、胸水、氣喘、外傷", aid: "choke" },
+      { id: "gums", label: "牙齦發白、發紫或發藍", why: "缺氧、休克、內出血", aid: null },
+      { id: "paralysis", label: "後肢突然癱瘓、腳掌冰冷", why: "主動脈血栓", aid: null },
+      { id: "seizure", label: "抽搐超過 2 分鐘，或連續抽搐", why: "中毒、腦病變、低血糖", aid: null },
+      { id: "poison", label: "確認或懷疑誤食毒物（百合、殺蟲劑、人用藥、蔥蒜、巧克力、葡萄、木糖醇）", why: "部分毒物超過治療窗口就沒有解藥，能救回來的關鍵是時間", aid: "poison" },
+      { id: "trauma", label: "車禍、高處墜落、被狗咬", why: "內出血可能沒有外傷，氣胸可能延遲數小時才出現", aid: "fracture" },
+      { id: "blind", label: "突然失明、瞳孔放大不縮", why: "高血壓、視網膜剝離", aid: null },
+      { id: "temp", label: "體溫摸起來冰冷或發燙、叫不醒", why: "休克、中暑、失溫", aid: "cold" },
+      { id: "bleed", label: "大量出血壓不住", why: "血管撕裂", aid: "bleed" }
+    ]},
+    { level: 2, title: "今天就要看的情況", hint: "不要拖過 24 小時", items: [
+      { id: "noEat", label: "完全不吃不喝超過 24 小時", why: "貓超過 48 小時不進食可能引發脂肪肝" },
+      { id: "vomit3", label: "一天嘔吐超過 3 次，或連續 2 天嘔吐", why: "偶發正常，頻繁是問題" },
+      { id: "diarrhea", label: "腹瀉帶血、黏液或呈水狀", why: "感染、寄生蟲、腸炎" },
+      { id: "painPee", label: "排尿時哀叫、頻繁進砂盆但有尿", why: "膀胱炎", maleNote: "公貓可能進展為尿道阻塞，如果變成完全沒尿就是立刻急診" },
+      { id: "uri", label: "打噴嚏、流鼻水、眼屎同時出現", why: "上呼吸道感染，幼貓惡化快" },
+      { id: "limp", label: "跛行超過 1 天", why: "骨折、關節傷、咬傷膿瘍" },
+      { id: "weight", label: "一個月內體重明顯下降", why: "甲亢、糖尿病、腎病、腫瘤的早期表現" },
+      { id: "wound", label: "大型傷口或腫脹的膿瘍", why: "貓咬傷極易化膿" }
+    ]},
+    { level: 3, title: "本週要處理的情況", hint: "觀察不超過一週", items: [
+      { id: "appetite", label: "食慾輕微下降", why: "記錄每天吃多少，帶去給獸醫" },
+      { id: "vomitWk", label: "每週偶爾嘔吐一兩次", why: "可能是毛球、飲食或腸胃問題" },
+      { id: "sneeze", label: "偶發打噴嚏", why: "沒有鼻水眼屎時通常不急" },
+      { id: "ear", label: "抓耳朵、甩頭", why: "耳疥蟲、外耳炎" },
+      { id: "thirst", label: "飲水量增加超過一週", why: "老貓喝水變多是腎病與甲亢最早的訊號之一" },
+      { id: "coat", label: "毛髮光澤變差", why: "營養、年齡或慢性病的訊號" }
+    ]},
+    { level: 4, title: "通常可以在家觀察的情況", hint: "有新的變化就重新勾一次", items: [
+      { id: "hairball", label: "吐毛球後精神正常", why: "單次且精神食慾正常" },
+      { id: "vaccine", label: "疫苗後 24 小時內嗜睡", why: "常見反應，超過 24 小時或發燒就升級" },
+      { id: "postOp", label: "結紮術後一兩天行動緩慢", why: "傷口沒紅腫滲液就正常" },
+      { id: "hide", label: "到新環境躲藏", why: "給牠安靜的空間，幾天內會好轉" },
+      { id: "softStool", label: "換食期間軟便", why: "放慢換食速度，帶血或水狀就升級" }
+    ]},
+    { level: 0, title: "沉默信號", hint: "貓會隱藏疼痛，這些是牠留下的線索。勾到任一項，往「今天就醫」的方向想", items: [
+      { id: "s1", label: "躲到平時不去的地方（衣櫃深處、床底）" },
+      { id: "s2", label: "突然不梳毛，或過度舔某一個部位" },
+      { id: "s3", label: "不願被碰，平時溫馴的貓突然咬人" },
+      { id: "s4", label: "在砂盆外排泄，或排泄姿勢改變" },
+      { id: "s5", label: "叫聲變多或變少" },
+      { id: "s6", label: "眼睛微瞇、耳朵往後、鬍鬚往後貼" },
+      { id: "s7", label: "不願跳躍，或跳之前猶豫" }
+    ]}
+  ];
+
+  // 第一級對應的就醫前處置
+  const AID = {
+    poison: { title: "懷疑中毒", do: "立刻把貓帶離毒源；皮膚或毛沾到就戴手套用溫水沖洗；記下毒物名稱、時間、量；帶包裝或植物殘片一起去醫院。", dont: "自行催吐、餵活性碳、餵牛奶。腐蝕性毒物催吐會二次灼傷食道。台灣沒有寵物專用的毒物熱線，直接去 24 小時急診最快。" },
+    fracture: { title: "懷疑骨折或內傷", do: "減少移動，把貓放在硬紙板或平底盒上，用毛巾鬆鬆地包住不綁緊，立刻送醫。任何樓層的墜落都應該當天就醫。", dont: "試圖固定或拉直肢體，那會加重疼痛與損傷。" },
+    bleed: { title: "大量出血", do: "用乾淨毛巾或紗布直接壓迫傷口，持續壓著不要掀開看，邊壓邊送醫。", dont: "綁止血帶。除非是四肢且獸醫電話指示，否則組織壞死的風險高於好處。" },
+    choke: { title: "窒息或呼吸困難", do: "看得到喉嚨異物就用手指輕輕取出，不要往深處推。運送時保持外出籠通風、避免壓迫胸部。", dont: "看不到異物時做人工呼吸（除非獸醫電話指導）。直接送醫。" },
+    cold: { title: "失溫或中暑", do: "失溫：用毛巾擦乾，裹毯子，送醫。中暑：移到陰涼處，用常溫水沾濕腳掌與腹部，送醫。", dont: "用電毯。失溫的貓無法自己移開，容易燙傷。也不要用冰水沖中暑的貓。" }
+  };
+
+  const ONSET = ["", "剛剛（1 小時內）", "幾小時前", "今天", "兩三天前", "一週以上"];
+  const MEAL = ["", "1 小時內", "今天有吃", "超過 12 小時沒吃", "超過 24 小時沒吃", "不確定"];
+
+  const ITEMS = {};
+  GROUPS.forEach(g => g.items.forEach(it => { it.level = g.level; ITEMS[it.id] = it; }));
+
+  const KEY = "cat-triage-v1";
+  let state = load();
+
+  function load() {
+    try { const s = JSON.parse(localStorage.getItem(KEY) || "{}"); return Object.assign({ checked: {}, age: false, male: false, onset: "", meal: "", contact: "" }, s); }
+    catch (e) { return { checked: {}, age: false, male: false, onset: "", meal: "", contact: "" }; }
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // 症狀清單
+  function renderSymptoms() {
+    const main = $("#symptoms");
+    main.innerHTML = GROUPS.map(g => `
+      <section class="group" data-level="${g.level}">
+        <h2><span class="dot l${g.level}"></span>${esc(g.title)}</h2>
+        <p class="hint">${esc(g.hint)}</p>
+        ${g.items.map(it => `
+          <label class="sym${state.checked[it.id] ? " checked" : ""}" data-id="${it.id}">
+            <input type="checkbox" ${state.checked[it.id] ? "checked" : ""}>
+            <span class="label">${esc(it.label)}${it.why ? `<span class="why">${esc(it.why)}</span>` : ""}</span>
+          </label>`).join("")}
+      </section>`).join("") + `
+      <section class="group" id="prep">
+        <h2>就醫前 60 秒</h2>
+        <p class="hint">到醫院能講出這幾件事，獸醫能省下很多時間。抽搐、步態、呼吸請用手機錄影。</p>
+        <div class="form">
+          <label>症狀什麼時候開始
+            <select id="onset">${ONSET.map(o => `<option value="${esc(o)}"${state.onset === o ? " selected" : ""}>${o || "請選擇"}</option>`).join("")}</select>
+          </label>
+          <label>最後一次進食
+            <select id="meal">${MEAL.map(o => `<option value="${esc(o)}"${state.meal === o ? " selected" : ""}>${o || "請選擇"}</option>`).join("")}</select>
+          </label>
+          <label>最近接觸過什麼新東西（植物、食物、藥物、外出、換食）
+            <input type="text" id="contact" value="${esc(state.contact)}" placeholder="例：昨天客廳放了一束百合">
+          </label>
+          <div class="row">
+            <button class="btn primary" type="button" id="btnSummary">產生摘要</button>
+            <button class="btn" type="button" id="btnCopy" disabled>複製</button>
+          </div>
+          <textarea id="summary" readonly aria-label="給獸醫的摘要" placeholder="按「產生摘要」後，這裡會出現可以直接念給獸醫聽的文字。"></textarea>
+        </div>
+      </section>`;
+
+    main.querySelectorAll(".sym input").forEach(cb => cb.addEventListener("change", e => {
+      const id = e.target.closest(".sym").dataset.id;
+      if (e.target.checked) state.checked[id] = true; else delete state.checked[id];
+      e.target.closest(".sym").classList.toggle("checked", e.target.checked);
+      save(); renderResult();
+    }));
+    $("#onset").addEventListener("change", e => { state.onset = e.target.value; save(); });
+    $("#meal").addEventListener("change", e => { state.meal = e.target.value; save(); });
+    $("#contact").addEventListener("input", e => { state.contact = e.target.value; save(); });
+    $("#btnSummary").addEventListener("click", () => { $("#summary").value = buildSummary(); $("#btnCopy").disabled = false; });
+    $("#btnCopy").addEventListener("click", async () => {
+      const t = $("#summary").value; if (!t) return;
+      try { await navigator.clipboard.writeText(t); $("#btnCopy").textContent = "已複製"; }
+      catch (e) { $("#summary").select(); document.execCommand("copy"); $("#btnCopy").textContent = "已複製"; }
+      setTimeout(() => { $("#btnCopy").textContent = "複製"; }, 1500);
+    });
+  }
+
+  function selected() { return Object.keys(state.checked).map(id => ITEMS[id]).filter(Boolean); }
+
+  function verdictLevel(sel) {
+    const graded = sel.filter(it => it.level > 0);
+    if (!graded.length) return 0;
+    return Math.min(...graded.map(it => it.level));   // 數字越小越急
+  }
+
+  // 結果區
+  let collapsed = false;
+  function renderResult() {
+    const sel = selected();
+    const level = verdictLevel(sel);
+    const silent = sel.filter(it => it.level === 0);
+    const graded = sel.filter(it => it.level > 0).sort((a, b) => a.level - b.level);
+    const box = $("#result");
+    let html = `<div class="verdict l${level}"><span class="dot big l${level}"></span><span>${esc(LEVELS[level].name)}</span>
+      <button class="toggle-btn" type="button" id="btnFold" aria-expanded="${!collapsed}">${collapsed ? "展開" : "收合"}</button></div>`;
+    html += `<p class="small">${esc(LEVELS[level].sub)}</p>`;
+
+    if (graded.length) {
+      html += `<ul class="reasons">` + graded.map(it => `<li><span class="dot l${it.level}"></span><div><b>${esc(it.label)}</b><span class="why">${esc(it.why || "")}${it.maleNote && state.male ? "。" + esc(it.maleNote) : ""}</span></div></li>`).join("") + `</ul>`;
+    }
+    if (silent.length && level !== 1 && level !== 2) {
+      html += `<div class="note">你勾了 ${silent.length} 項沉默信號。貓隱藏疼痛，出現這些變化時往「今天就醫」的方向想，不要等。</div>`;
+    } else if (silent.length) {
+      html += `<p class="small">另有 ${silent.length} 項沉默信號，就醫時一併告訴獸醫。</p>`;
+    }
+    if (state.age && level === 3) {
+      html += `<div class="note">幼貓與老貓惡化得快，這些情況建議提前到「今天就醫」。</div>`;
+    }
+    if (state.age && sel.some(it => it.id === "uri")) {
+      html += `<div class="note">幼貓的上呼吸道感染惡化快，不吃不喝時就是立刻就醫。</div>`;
+    }
+    if (level === 1) {
+      const aids = [...new Set(graded.map(it => it.aid).filter(Boolean))];
+      aids.forEach(k => { const a = AID[k]; html += `<div class="card"><h3>${esc(a.title)}</h3><p class="do">${esc(a.do)}</p><p class="dont">${esc(a.dont)}</p></div>`; });
+      if (!aids.length) html += `<div class="card"><h3>送醫路上</h3><p class="do">把貓放進外出籠，保持通風、減少移動。用手機錄下抽搐、步態或呼吸方式給獸醫看。</p><p class="dont">在家治療、餵人用藥。乙醯胺酚（普拿疼）對貓是致命毒物。</p></div>`;
+    }
+    if (level === 1 || level === 2) {
+      html += `<div class="actions">
+        <a class="btn danger" target="_blank" rel="noopener" href="https://www.google.com/maps/search/24%E5%B0%8F%E6%99%82+%E5%8B%95%E7%89%A9%E9%86%AB%E9%99%A2">找附近 24 小時動物醫院</a>
+      </div><p class="small">出門前先打電話告知狀況，醫院能提前準備。</p>`;
+    }
+    box.innerHTML = html;
+    box.classList.toggle("collapsed", collapsed);
+    $("#btnFold").addEventListener("click", () => { collapsed = !collapsed; renderResult(); });
+  }
+
+  function buildSummary() {
+    const sel = selected();
+    const level = verdictLevel(sel);
+    const lines = [];
+    lines.push("【貓咪狀況摘要】" + new Date().toLocaleString("zh-TW", { hour12: false }));
+    const tags = [];
+    if (state.age) tags.push("幼貓或老貓"); if (state.male) tags.push("公貓");
+    if (tags.length) lines.push("基本：" + tags.join("、"));
+    const graded = sel.filter(it => it.level > 0).sort((a, b) => a.level - b.level);
+    if (graded.length) lines.push("看到的症狀：\n" + graded.map(it => "・" + it.label).join("\n"));
+    const silent = sel.filter(it => it.level === 0);
+    if (silent.length) lines.push("行為變化：\n" + silent.map(it => "・" + it.label).join("\n"));
+    if (state.onset) lines.push("症狀開始：" + state.onset);
+    if (state.meal) lines.push("最後進食：" + state.meal);
+    if (state.contact.trim()) lines.push("最近接觸：" + state.contact.trim());
+    lines.push("工具判斷：" + LEVELS[level].name + "（僅供參考，以獸醫判斷為準）");
+    return lines.join("\n");
+  }
+
+  // 開關與清除
+  function bindToggles() {
+    const age = $("#tgAge"), male = $("#tgMale");
+    age.checked = state.age; male.checked = state.male;
+    $("#tgAgeWrap").classList.toggle("on", state.age); $("#tgMaleWrap").classList.toggle("on", state.male);
+    age.addEventListener("change", () => { state.age = age.checked; $("#tgAgeWrap").classList.toggle("on", state.age); save(); renderResult(); });
+    male.addEventListener("change", () => { state.male = male.checked; $("#tgMaleWrap").classList.toggle("on", state.male); save(); renderResult(); });
+    $("#btnClear").addEventListener("click", () => {
+      state = { checked: {}, age: false, male: false, onset: "", meal: "", contact: "" };
+      try { localStorage.removeItem(KEY); } catch (e) {}
+      age.checked = false; male.checked = false;
+      $("#tgAgeWrap").classList.remove("on"); $("#tgMaleWrap").classList.remove("on");
+      renderSymptoms(); renderResult();
+    });
+  }
+
+  renderSymptoms();
+  bindToggles();
+  renderResult();
+})();
+</script>
+</body>
+</html>
