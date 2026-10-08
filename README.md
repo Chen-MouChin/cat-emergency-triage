@@ -2,7 +2,8 @@
 
 勾選貓咪現在的症狀，立刻知道該「現在就出門、今天就醫、本週預約、還是在家觀察」，並把獸醫會問的資訊整理成一段可以複製的摘要。
 
-- 線上版：（GitHub Pages 網址，開通後補）
+- 線上版：https://chen-mouchin.github.io/cat-emergency-triage/
+- 原始碼：https://github.com/Chen-MouChin/cat-emergency-triage
 - 規格書：[SPEC.md](SPEC.md)
 - 單一 `index.html`，CSS 與 JavaScript 內嵌，沒有外部資源，離線可用。
 
